@@ -262,6 +262,8 @@ int main(int argc, char *argv[]) {
     }
 
     std::cout << "Packets done processing! Program will now exit." << std::endl;
+    fileIn.close();
+    fileOut.close();
 
     return 0;
 }
