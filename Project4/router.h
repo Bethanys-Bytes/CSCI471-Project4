@@ -5,6 +5,7 @@
 #include <vector>
 #include <cstdint>
 #include <iostream>
+#include "logging.h"
 
 struct InterfaceEntry {
     std::string name;

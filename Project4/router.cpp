@@ -1,31 +1,24 @@
 #include <iostream>
 #include <fstream>
-#include <sstream>
 #include <string>
-#include <vector>
 #include <regex>
-#include <cstdint>
-#include <algorithm>
 
-#include "logging.h"
 #include "router.h"
-
-using namespace std;
 
 // Helper functions
 
 // Convert string IP to num (binary)
-uint32_t ipToNum(const string &ipStr) {
+uint32_t ipToNum(const std::string &ipStr) {
     uint32_t b1, b2, b3, b4;
     char dot;
-    stringstream ss(ipStr);
+    std::stringstream ss(ipStr);
     ss >> b1 >> dot >> b2 >> dot >> b3 >> dot >> b4;
     return (b1 << 24) | (b2 << 16) | (b3 << 8) | b4;
 }
 
 // Convert IP num to string
-string numToIP(uint32_t ip) {
-    return to_string((ip >> 24) & 0xFF) + "." + to_string((ip >> 16) & 0xFF) + "." + to_string((ip >>  8) & 0xFF) + "." + to_string(ip & 0xFF);
+std::string numToIP(uint32_t ip) {
+    return std::to_string((ip >> 24) & 0xFF) + "." + std::to_string((ip >> 16) & 0xFF) + "." + std::to_string((ip >>  8) & 0xFF) + "." + std::to_string(ip & 0xFF);
 }
 
 // Apply a network mask to an IP
@@ -38,26 +31,26 @@ uint32_t applyMask(uint32_t ip, int maskLen) {
 }
 
 // Check routing table file for available interfaces
-vector<InterfaceEntry> parseInterfaces(const string &path) {
-    vector<InterfaceEntry> interfaces;
-    ifstream file(path);
+std::vector<InterfaceEntry> parseInterfaces(const std::string &path) {
+    std::vector<InterfaceEntry> interfaces;
+    std::ifstream file(path);
 
     if (!file) {
         DEBUG << "Could not open interface config file." << ENDL;
         exit(-1);
     }
 
-    string line;
-    regex re(R"(^\s*([A-Za-z0-9]+)\s+([0-9\.]+)\/([0-9]+)\s*$)");
+    std::string line;
+    std::regex re(R"(^\s*([A-Za-z0-9]+)\s+([0-9\.]+)\/([0-9]+)\s*$)");
 
     while (getline(file, line)) {
         // Skip lines without any data or with comments
-        if (line.empty() || regex_match(line, regex(R"(^\s*#.*$)"))) {
+        if (line.empty() || std::regex_match(line, std::regex(R"(^\s*#.*$)"))) {
             continue;
         }
 
-        smatch match;
-        if (regex_match(line, match, re)) {
+        std::smatch match;
+        if (std::regex_match(line, match, re)) {
             InterfaceEntry e;
             e.name = match[1];
             e.ip = ipToNum(match[2]);
@@ -72,25 +65,25 @@ vector<InterfaceEntry> parseInterfaces(const string &path) {
 }
 
 // Check routing table for available routers
-vector<RouteEntry> parseRoutes(const string &path) {
-    vector<RouteEntry> routes;
-    ifstream file(path);
+std::vector<RouteEntry> parseRoutes(const std::string &path) {
+    std::vector<RouteEntry> routes;
+    std::ifstream file(path);
 
     if (!file) {
         DEBUG << "Could not open route table file." << ENDL;;
         exit(-1);
     }
 
-    string line;
-    regex re(R"(^\s*([0-9\.]+)\/([0-9]+)\s+([0-9\.]+)\s*$)");
+    std::string line;
+    std::regex re(R"(^\s*([0-9\.]+)\/([0-9]+)\s+([0-9\.]+)\s*$)");
 
-    while (getline(file, line)) {
-        if (line.empty() || regex_match(line, regex(R"(^\s*#.*$)"))) {
+    while (std::getline(file, line)) {
+        if (line.empty() || std::regex_match(line, std::regex(R"(^\s*#.*$)"))) {
             continue;
         }
 
-        smatch match;
-        if (regex_match(line, match, re)) {
+        std::smatch match;
+        if (std::regex_match(line, match, re)) {
             RouteEntry r;
             r.network = applyMask(ipToNum(match[1]), stoi(match[2]));
             r.maskLen = stoi(match[2]);
@@ -104,7 +97,7 @@ vector<RouteEntry> parseRoutes(const string &path) {
 }
 
 // Returns a pointer to best matching route or nullptr
-RouteEntry* findRoute(uint32_t dest, vector<RouteEntry> &routes) {
+RouteEntry* findRoute(uint32_t dest, std::vector<RouteEntry> &routes) {
     RouteEntry* best = nullptr;
     int bestMask = -1;
 
@@ -121,10 +114,7 @@ RouteEntry* findRoute(uint32_t dest, vector<RouteEntry> &routes) {
 }
 
 // Determine which interface forwards to nextHop
-InterfaceEntry* findOutgoingInterface(
-    uint32_t nextHop,
-    vector<InterfaceEntry> &ifs
-) {
+InterfaceEntry* findOutgoingInterface(uint32_t nextHop, std::vector<InterfaceEntry> &ifs) {
     for (auto &iface : ifs) {
         if (applyMask(nextHop, iface.maskLen) == iface.network) {
             return &iface;
@@ -133,17 +123,15 @@ InterfaceEntry* findOutgoingInterface(
     return nullptr;
 }
 
-void processPacket(uint32_t dest, vector<InterfaceEntry> &interfaces, vector<RouteEntry> &routes, ostream &out, int debugLevel) {
+void processPacket(uint32_t dest, std::vector<InterfaceEntry> &interfaces, std::vector<RouteEntry> &routes, std::ostream &out, int debugLevel) {
     // Check if destination is directly reachable
-    for (auto &iface : interfaces) {
-        if (applyMask(dest, iface.maskLen) == iface.network) {
-            DEBUG << "Packet on same subnet as destination." << ENDL;
-            out << "Packet now being sent to destination " << numToIP(dest) << ", leaving router from interface " << iface.name << std::endl;
-            return;
-        }
-    }
-
-    DEBUG << "Packet destination is not on same subnet, will be forwarded now." << ENDL;
+    // for (auto &iface : interfaces) {
+    //     if (applyMask(dest, iface.maskLen) == iface.network) {
+    //         DEBUG << "Packet on same subnet as destination." << ENDL;
+    //         out << "Packet now being sent to destination " << numToIP(dest) << ", leaving router from interface " << iface.name << std::endl;
+    //         return;
+    //     }
+    // }
 
     // Find longest prefix match in routing table
     RouteEntry *route = findRoute(dest, routes);
@@ -172,18 +160,18 @@ void processPacket(uint32_t dest, vector<InterfaceEntry> &interfaces, vector<Rou
 
 int main(int argc, char *argv[]) {
 
-    string configFile, routeFile, inputFile, outputFile;
+    std::string configFile, routeFile, inputFile, outputFile;
     int debugLevel = 4;
 
     for (int i = 1; i < argc; i++) {
-        string flag = argv[i];
+        std::string flag = argv[i];
         if (flag == "-h") {
             std::cout << "Usage: ./router -c <configFile> -r <routeTable> [-i <inputFile>] [-o <outputFile>] [-d <debugLevel>] [-h]\nDefault for input and output is stdin and stdout." << std::endl;
             return 0;
         }
 
         if (i + 1 < argc) {
-            string arg = argv[i + 1];
+            std::string arg = argv[i + 1];
 
             if (flag == "-c") {
                 configFile = arg;
@@ -194,7 +182,7 @@ int main(int argc, char *argv[]) {
             } else if (flag == "-o") {
                 outputFile = arg;
             } else if (flag == "-d") {
-                debugLevel = stoi(arg);
+                debugLevel = std::stoi(arg);
             } else {
                 std::cout << "Unknown flag received, or one or more flags are missing their arguments. Use -h to see valid options." << std::endl;
                 return -1;
@@ -219,8 +207,8 @@ int main(int argc, char *argv[]) {
 
 
     // Set up input to be stdin unless the -i flag was specified
-    istream *in = &cin;
-    ifstream fileIn;
+    std::istream *in = &std::cin;
+    std::ifstream fileIn;
     if (!inputFile.empty()) {
         fileIn.open(inputFile);
         if (!fileIn) {
@@ -234,8 +222,8 @@ int main(int argc, char *argv[]) {
     }
 
     // Set up output to be stdout unless the -o flag was specified
-    ostream *out = &cout;
-    ofstream fileOut;
+    std::ostream *out = &std::cout;
+    std::ofstream fileOut;
     if (!outputFile.empty()) {
         fileOut.open(outputFile);
         if (!fileOut) {
@@ -249,10 +237,10 @@ int main(int argc, char *argv[]) {
     }
 
     // Process packets per line from the input
-    string line;
-    while (getline(*in, line)) {
+    std::string line;
+    while (std::getline(*in, line)) {
         // If line has no data, continue
-        if (line.empty() || regex_match(line, regex(R"(^\s*#.*$)"))) {
+        if (line.empty() || std::regex_match(line, std::regex(R"(^\s*#.*$)"))) {
             continue;
         }
 
