@@ -1,7 +1,0 @@
-Packet now being sent to destination 138.67.20.3, leaving router from interface eth0
-Packet now being sent to destination 138.67.10.50, leaving router from interface eth0
-Packet now being sent to destination 138.67.131.0, leaving router from interface ap1
-Packet destination is 10.5.1.2, leaving router from interface eth0 to next hop 138.67.1.10
-Packet destination is 192.168.1.1, leaving router from interface eth0 to next hop 138.67.10.10
-Packet destination is 192.168.50.50, leaving router from interface eth0 to next hop 138.67.10.10
-Packet now being sent to destination 138.67.130.10, leaving router from interface ap1

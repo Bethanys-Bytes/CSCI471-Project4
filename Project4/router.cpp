@@ -123,15 +123,15 @@ InterfaceEntry* findOutgoingInterface(uint32_t nextHop, std::vector<InterfaceEnt
     return nullptr;
 }
 
-void processPacket(uint32_t dest, std::vector<InterfaceEntry> &interfaces, std::vector<RouteEntry> &routes, std::ostream &out, int debugLevel) {
-    // Check if destination is directly reachable
-    // for (auto &iface : interfaces) {
-    //     if (applyMask(dest, iface.maskLen) == iface.network) {
-    //         DEBUG << "Packet on same subnet as destination." << ENDL;
-    //         out << "Packet now being sent to destination " << numToIP(dest) << ", leaving router from interface " << iface.name << std::endl;
-    //         return;
-    //     }
-    // }
+void processPacket(uint32_t dest, std::vector<InterfaceEntry> &interfaces, std::vector<RouteEntry> &routes, std::ostream &out) {
+    // If destination is in the same subnet, packet should go straight there
+    for (auto &iface : interfaces) {
+        if (applyMask(dest, iface.maskLen) == iface.network) {
+            DEBUG << "Packet on same subnet as destination." << ENDL;
+            out << numToIP(dest) << ": " << iface.name << " -> " << numToIP(dest) << std::endl;
+            return;
+        }
+    }
 
     // Find longest prefix match in routing table
     RouteEntry *route = findRoute(dest, routes);
@@ -153,7 +153,7 @@ void processPacket(uint32_t dest, std::vector<InterfaceEntry> &interfaces, std::
     }
 
     // Print forwarding information
-    out << "Packet destination is " << numToIP(dest) << ", leaving router from interface " << iface->name << " to next hop " << numToIP (route->nextHop) << std::endl;
+    out << numToIP(dest) << ": " << iface->name << " -> " << numToIP(route->nextHop) << std::endl;
 }
 
 
@@ -191,6 +191,9 @@ int main(int argc, char *argv[]) {
 
         i++; // Must double increment to get the next flag
     }
+
+    // Set debug logging level
+    LOG_LEVEL = debugLevel;;
 
     // -c and -r are required flags
     if (configFile == "") {
@@ -233,7 +236,7 @@ int main(int argc, char *argv[]) {
         out = &fileOut;
         DEBUG << "Now opening output file." << ENDL;
     } else {
-        std::cout << "No output file specified. Program will use stdout." << std::endl;
+        std::cout << "No output file specified. Program will use stdout.\n" << std::endl;
     }
 
     // Process packets per line from the input
@@ -246,10 +249,10 @@ int main(int argc, char *argv[]) {
 
         uint32_t dest = ipToNum(line);
 
-        processPacket(dest, interfaces, routes, *out, debugLevel);
+        processPacket(dest, interfaces, routes, *out);
     }
 
-    std::cout << "Packets done processing! Program will now exit." << std::endl;
+    std::cout << "\nPackets done processing! Program will now exit." << std::endl;
     fileIn.close();
     fileOut.close();
 
