@@ -103,9 +103,7 @@ RouteEntry* findRoute(uint32_t dest, std::vector<RouteEntry> &routes) {
 
     // Determine best route via longest matching prefix
     for (auto &r : routes) {
-        uint32_t masked = applyMask(dest, r.maskLen);
-
-        if (masked == r.network) {
+        if (applyMask(dest, r.maskLen) == r.network) {
             if (r.maskLen > bestMask) {
                 bestMask = r.maskLen;
                 best = &r;
@@ -117,47 +115,26 @@ RouteEntry* findRoute(uint32_t dest, std::vector<RouteEntry> &routes) {
 
 // Determine which interface forwards to nextHop
 InterfaceEntry* findOutgoingInterface(uint32_t nextHop, std::vector<InterfaceEntry> &ifs) {
-    InterfaceEntry* best = nullptr;
-    int bestMask = -1;
-
-    // Determine best route via longest matching prefix
     for (auto &iface : ifs) {
         if (applyMask(nextHop, iface.maskLen) == iface.network) {
-            if (iface.maskLen > bestMask) {
-                bestMask = iface.maskLen;
-                best = &iface;
-            }
+            return &iface;
         }
     }
-    return best;
+    return nullptr;
 }
 
 void processPacket(uint32_t dest, std::vector<InterfaceEntry> &interfaces, std::vector<RouteEntry> &routes, std::ostream &out) {
     // If destination is in the same subnet, packet should go straight there
-    bool match = false;
-    InterfaceEntry* bestMatch = nullptr;
-    int bestMask = -1;
     for (auto &iface : interfaces) {
         if (applyMask(dest, iface.maskLen) == iface.network) {
-            match = true;
-            if (iface.maskLen > bestMask) {
-                bestMask = iface.maskLen;
-                bestMatch = &iface;
-            }
+            DEBUG << "Packet on same subnet as destination." << ENDL;
+            out << numToIP(dest) << ": " << iface.name << " -> " << numToIP(dest) << std::endl;
+            return;
         }
-    }
-
-    // Go to the longest matching prefix subnet if an interface matched
-    if (match) {
-        DEBUG << "Packet on same subnet as destination." << ENDL;
-        out << numToIP(dest) << ": " << bestMatch->name << " -> " << numToIP(dest) << std::endl;
-        return;
     }
 
     // Find longest prefix match in routing table
     RouteEntry *route = findRoute(dest, routes);
-
-    DEBUG << "Packet taking route " << numToIP(route->network) << ", next hop is " << numToIP(route->nextHop) << ENDL;
 
     if (!route) {
         // No route found means destination is unreachable
@@ -167,8 +144,6 @@ void processPacket(uint32_t dest, std::vector<InterfaceEntry> &interfaces, std::
 
     // Determine interface for next hop
     InterfaceEntry *iface = findOutgoingInterface(route->nextHop, interfaces);
-
-    DEBUG << "Packet leaving interface " << iface->name << " on " << numToIP(iface->ip) << ENDL;
 
     if (!iface) {
         // Should only occur with malformed input
